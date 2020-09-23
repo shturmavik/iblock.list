@@ -1,4 +1,5 @@
 <?
+
 if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) {
     die();
 }
@@ -39,7 +40,6 @@ if (strlen($arParams["FILTER_NAME"]) <= 0 || !preg_match("/^[A-Za-z_][A-Za-z01-9
         $arFilter = [];
     }
 }
-
 if (!is_array($arParams["FIELD_CODE"])) {
     $arParams["FIELD_CODE"] = [];
 }
@@ -71,15 +71,21 @@ if (strlen($arParams["ACTIVE_DATE_FORMAT"]) <= 0) {
 $additionalCacheID = false;
 if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
     //SELECT
-    $arSelect = array_merge($arParams["FIELD_CODE"], [
-        "ID",
-        "IBLOCK_ID",
-        "PREVIEW_PICTURE",
-        "NAME",
-        "DETAIL_TEXT",
-        "DETAIL_PAGE_URL",
-        "PREVIEW_TEXT",
-    ]);
+    $arSelect = array_merge(
+        $arParams["FIELD_CODE"],
+        [
+            "ID",
+            "ACTIVE",
+            "DATE_CREATE",
+            "TIMESTAMP_X",
+            "IBLOCK_ID",
+            "PREVIEW_PICTURE",
+            "NAME",
+            "DETAIL_TEXT",
+            "DETAIL_PAGE_URL",
+            "PREVIEW_TEXT",
+        ]
+    );
 
     foreach ($arParams["PROPERTY_CODE"] as $prop_name) {
         $arSelect[] = "PROPERTY_" . $prop_name;
@@ -88,17 +94,16 @@ if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
     //WHERE
     $arFilter["IBLOCK_ID"] = $arParams["IBLOCK_ID"];
     $arFilter["IBLOCK_LID"] = SITE_ID;
-    $arFilter["ACTIVE"] = "Y";
+    $arFilter["SECTION_ID"] = $arParams['PARENT_SECTION'];
+    if (!!$arParams["ACTIVE"]) {
+        $arFilter["ACTIVE"] = $arParams["ACTIVE"];
+    }
 
     //ORDER BY
     $arSort = [
         $arParams["SORT_BY1"] => $arParams["SORT_ORDER1"],
         $arParams["SORT_BY2"] => $arParams["SORT_ORDER2"]
     ];
-
-    if (!array_key_exists("ID", $arSort)) {
-        // $arSort["ID"] = "DESC";
-    }
 
     if ($arParams["NEWS_COUNT"] > 0) {
         $arNavParams["nTopCount"] = $arParams['NEWS_COUNT'];
@@ -115,12 +120,13 @@ if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
     $rsElement->SetUrlTemplates($arParams["DETAIL_URL"], "", $arParams["IBLOCK_URL"]);
 
     while ($arItem = $rsElement->GetNext()) {
-
         $arItem["PREVIEW_PICTURE"] = CFile::GetFileArray($arItem["PREVIEW_PICTURE"]);
 
         if (strlen($arItem["ACTIVE_FROM"]) > 0) {
-            $arItem["DISPLAY_ACTIVE_FROM"] = CIBlockFormatProperties::DateFormat($arParams["ACTIVE_DATE_FORMAT"],
-                MakeTimeStamp($arItem["ACTIVE_FROM"], CSite::GetDateFormat()));
+            $arItem["DISPLAY_ACTIVE_FROM"] = CIBlockFormatProperties::DateFormat(
+                $arParams["ACTIVE_DATE_FORMAT"],
+                MakeTimeStamp($arItem["ACTIVE_FROM"], CSite::GetDateFormat())
+            );
         } else {
             $arItem["DISPLAY_ACTIVE_FROM"] = "";
         }
@@ -129,5 +135,6 @@ if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
     }
 
     $this->includeComponentTemplate();
-}//cache
 
+    return !!$arResult["ITEMS"];
+}//cache
