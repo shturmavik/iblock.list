@@ -22,7 +22,7 @@ if (!Loader::includeModule("iblock")) {
 }
 
 if (!isset($arParams["CACHE_TIME"])) {
-    $arParams["CACHE_TIME"] = 36000000;
+    $arParams["CACHE_TIME"] = 86000;
 }
 
 $arParams["IBLOCK_ID"] = trim($arParams["IBLOCK_ID"]);
@@ -30,7 +30,6 @@ $arParams["IBLOCK_ID"] = trim($arParams["IBLOCK_ID"]);
 if (!preg_match('/^(asc|desc|nulls)(,asc|,desc|,nulls){0,1}$/i', $arParams["SORT_ORDER1"])) {
     $arParams["SORT_ORDER1"] = "DESC";
 }
-
 
 if (strlen($arParams["FILTER_NAME"]) <= 0 || !preg_match("/^[A-Za-z_][A-Za-z01-9_]*$/", $arParams["FILTER_NAME"])) {
     $arFilter = [];
@@ -59,16 +58,35 @@ foreach ($arParams["PROPERTY_CODE"] as $key => $val) {
 }
 
 $arParams["DETAIL_URL"] = trim($arParams["DETAIL_URL"]);
-
 $arParams["NEWS_COUNT"] = intval($arParams["NEWS_COUNT"]) > 0 ? intval($arParams["NEWS_COUNT"]) : '-1';
-
 $arParams["ACTIVE_DATE_FORMAT"] = trim($arParams["ACTIVE_DATE_FORMAT"]);
 
 if (strlen($arParams["ACTIVE_DATE_FORMAT"]) <= 0) {
     $arParams["ACTIVE_DATE_FORMAT"] = $DB->DateFormatToPHP(CSite::GetDateFormat("SHORT"));
 }
 
-$additionalCacheID = false;
+$arFilter = array_merge($arFilter, [
+    [
+        "LOGIC"         => "OR",
+        "<=DATE_ACTIVE_FROM" => $DB->FormatDate(
+            date("Y-m-d H:i:s"),
+            "YYYY-MM-DD HH:MI:SS",
+            \CSite::GetDateFormat("FULL")
+        ),
+        "DATE_ACTIVE_FROM"   => false,
+    ],
+    [
+        "LOGIC"       => "OR",
+        ">=DATE_ACTIVE_TO" => $DB->FormatDate(
+            date("Y-m-d H:i:s"),
+            "YYYY-MM-DD HH:MI:SS",
+            \CSite::GetDateFormat("FULL")
+        ),
+        "DATE_ACTIVE_TO"   => false,
+    ]
+]);
+
+$additionalCacheID = md5(json_encode(array_merge($arParams, $arFilter)));
 if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
     //SELECT
     $arSelect = array_merge(
@@ -79,6 +97,7 @@ if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
             "DATE_CREATE",
             "TIMESTAMP_X",
             "IBLOCK_ID",
+            "DETAIL_PICTURE",
             "PREVIEW_PICTURE",
             "NAME",
             "DETAIL_TEXT",
@@ -95,10 +114,12 @@ if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
     $arFilter["IBLOCK_ID"] = $arParams["IBLOCK_ID"];
     $arFilter["IBLOCK_LID"] = SITE_ID;
     $arFilter["SECTION_ID"] = $arParams['PARENT_SECTION'];
+
     if (!!$arParams["ACTIVE"]) {
         $arFilter["ACTIVE"] = $arParams["ACTIVE"];
     }
 
+//    pre($arParams);
     //ORDER BY
     $arSort = [
         $arParams["SORT_BY1"] => $arParams["SORT_ORDER1"],
@@ -122,6 +143,10 @@ if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
     while ($arItem = $rsElement->GetNext()) {
         $arItem["PREVIEW_PICTURE"] = CFile::GetFileArray($arItem["PREVIEW_PICTURE"]);
 
+        if (!empty($arItem["DETAIL_PICTURE"]) && in_array("DETAIL_PICTURE", $arParams["FIELD_CODE"])) {
+            $arItem["DETAIL_PICTURE"] = CFile::GetFileArray($arItem["DETAIL_PICTURE"]);
+        }
+
         if (strlen($arItem["ACTIVE_FROM"]) > 0) {
             $arItem["DISPLAY_ACTIVE_FROM"] = CIBlockFormatProperties::DateFormat(
                 $arParams["ACTIVE_DATE_FORMAT"],
@@ -138,3 +163,4 @@ if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
 
     return !!$arResult["ITEMS"];
 }//cache
+
