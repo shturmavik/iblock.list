@@ -65,9 +65,9 @@ if (strlen($arParams["ACTIVE_DATE_FORMAT"]) <= 0) {
     $arParams["ACTIVE_DATE_FORMAT"] = $DB->DateFormatToPHP(CSite::GetDateFormat("SHORT"));
 }
 
-$arFilter = array_merge($arFilter, [
+$arFilterDate = [
     [
-        "LOGIC"         => "OR",
+        "LOGIC"              => "OR",
         "<=DATE_ACTIVE_FROM" => $DB->FormatDate(
             date("Y-m-d H:i:s"),
             "YYYY-MM-DD HH:MI:SS",
@@ -76,7 +76,7 @@ $arFilter = array_merge($arFilter, [
         "DATE_ACTIVE_FROM"   => false,
     ],
     [
-        "LOGIC"       => "OR",
+        "LOGIC"            => "OR",
         ">=DATE_ACTIVE_TO" => $DB->FormatDate(
             date("Y-m-d H:i:s"),
             "YYYY-MM-DD HH:MI:SS",
@@ -84,7 +84,7 @@ $arFilter = array_merge($arFilter, [
         ),
         "DATE_ACTIVE_TO"   => false,
     ]
-]);
+];
 
 $additionalCacheID = md5(json_encode(array_merge($arParams, $arFilter)));
 if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
@@ -110,7 +110,6 @@ if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
         $arSelect[] = "PROPERTY_" . $prop_name;
     }
 
-    //WHERE
     $arFilter["IBLOCK_ID"] = $arParams["IBLOCK_ID"];
     $arFilter["IBLOCK_LID"] = SITE_ID;
     $arFilter["SECTION_ID"] = $arParams['PARENT_SECTION'];
@@ -119,8 +118,8 @@ if ($this->startResultCache($arParams['CACHE_TIME'], $additionalCacheID)) {
         $arFilter["ACTIVE"] = $arParams["ACTIVE"];
     }
 
-//    pre($arParams);
-    //ORDER BY
+    $arFilter = array_merge($arFilter, $arFilterDate);
+
     $arSort = [
         $arParams["SORT_BY1"] => $arParams["SORT_ORDER1"],
         $arParams["SORT_BY2"] => $arParams["SORT_ORDER2"]
